@@ -1,0 +1,15 @@
+# Matriz de Trazabilidad — Customer Search
+
+La trazabilidad conecta el requisito definido una sola vez en `REQUIREMENTS.md` con su comportamiento verificable en `SPEC.md`, la tarea ejecutada en `TASKS.md`, los archivos implementados y las pruebas automatizadas asociadas.
+
+| Requirement | SPEC / AC | Task | Files | Test | Status | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **FR-01** | AC-01 / SR-02, SR-03 | T-03 | `src/customer_search/service.py`, `src/customer_search/cli.py` | `tests/test_service.py::test_search_by_name_partial_and_case_insensitive`, `tests/test_cli.py::test_cli_search_by_name` | PASSED | Soporta coincidencia parcial (substring) e insensibilidad a mayúsculas/minúsculas en el nombre. |
+| **FR-02** | AC-02 / SR-02, SR-03 | T-03 | `src/customer_search/service.py`, `src/customer_search/cli.py` | `tests/test_service.py::test_search_by_email_partial_and_case_insensitive`, `tests/test_cli.py::test_cli_search_by_email` | PASSED | Soporta coincidencia parcial e insensibilidad a mayúsculas en el email y sus dominios. |
+| **FR-03** | AC-03 / SR-04 | T-03 | `src/customer_search/service.py`, `src/customer_search/cli.py` | `tests/test_service.py::test_unified_search_all_fields`, `tests/test_cli.py::test_cli_search_unified_all` | PASSED | Búsqueda unificada en ambos campos sin duplicación de registros coincidentes. |
+| **FR-04** | AC-04 / VR-01, VR-02 | T-04 | `src/customer_search/validator.py`, `src/customer_search/service.py` | `tests/test_validator.py::test_validator_invalid_query_length_or_empty`, `tests/test_cli.py::test_cli_validation_error_short_query` | PASSED | Requiere mínimo 2 caracteres significativos tras strip y rechaza cadenas vacías. |
+| **FR-05** | AC-05 / SR-05 | T-05 | `src/customer_search/models.py`, `src/customer_search/cli.py` | `tests/test_service.py::test_search_no_matches`, `tests/test_cli.py::test_cli_zero_matches`, `tests/test_cli.py::test_cli_json_output` | PASSED | Presenta conteo total, detalles de clientes o mensaje claro si no hay coincidencias. Soporta JSON. |
+| **FR-06** | AC-06 / VR-03 | T-04, T-05 | `src/customer_search/exceptions.py`, `src/customer_search/cli.py` | `tests/test_cli.py::test_cli_validation_error_short_query`, `tests/test_cli.py::test_cli_data_file_not_found`, `tests/test_validator.py::test_validator_invalid_field` | PASSED | Mensajes limpios de error a `stderr` con código de salida 1; sin tracebacks no controlados. |
+| **NFR-01** | AC-07 | T-05 | `src/customer_search/service.py` | `tests/test_performance.py::test_performance_1000_customers` | PASSED | Consulta en memoria sobre 1,000 registros sintéticos ejecutada en < 100 ms (típico < 5 ms). |
+| **NFR-02** | AC-08 | T-03 | `src/customer_search/service.py`, `src/customer_search/repository.py` | `tests/test_service.py::test_service_decoupling_with_custom_repo` | PASSED | Lógica de búsqueda encapsulada en `CustomerSearchService`, desacoplada de la interfaz CLI. |
+| **NFR-03** | AC-09 | T-05 | `tests/` | Suite completa: `pytest -v` (42 tests) | PASSED | Cobertura del 100% de reglas y escenarios de prueba especificados en `SPEC.md`. |
