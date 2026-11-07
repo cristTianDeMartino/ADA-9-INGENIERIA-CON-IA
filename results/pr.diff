@@ -1,0 +1,244 @@
+diff --git a/src/customer_search/cli.py b/src/customer_search/cli.py
+index b5ceae5..731bd33 100644
+--- a/src/customer_search/cli.py
++++ b/src/customer_search/cli.py
+@@ -20,14 +20,14 @@ def format_text_output(result: SearchResult) -> str:
+ 
+     lines = [
+         f"Found {result.total_matches} customer(s) matching '{result.query}' [field: {result.field}]:",
+-        "-" * 80,
+-        f"{'ID':<12} | {'NAME':<28} | {'EMAIL':<30} | {'STATUS':<8}",
+-        "-" * 80,
++        "-" * 98,
++        f"{'ID':<12} | {'NAME':<28} | {'EMAIL':<30} | {'PHONE':<16} | {'STATUS':<8}",
++        "-" * 98,
+     ]
+     for c in result.customers:
+         status = "Active" if c.is_active else "Inactive"
+-        lines.append(f"{c.id:<12} | {c.name:<28} | {c.email:<30} | {status:<8}")
+-    lines.append("-" * 80)
++        lines.append(f"{c.id:<12} | {c.name:<28} | {c.email:<30} | {c.phone:<16} | {status:<8}")
++    lines.append("-" * 98)
+     return "\n".join(lines)
+ 
+ 
+@@ -62,6 +62,12 @@ def build_parser() -> argparse.ArgumentParser:
+         dest="active_only",
+         help="Filter search results to active customers only.",
+     )
++    parser.add_argument(
++        "--limit",
++        type=int,
++        default=None,
++        help="Maximum number of customer records to return.",
++    )
+     parser.add_argument(
+         "--json",
+         action="store_true",
+@@ -93,6 +99,7 @@ def main(argv: Sequence[str] | None = None) -> int:
+             query=args.query,
+             field=args.field,
+             active_only=args.active_only,
++            limit=args.limit,
+         )
+ 
+         if args.as_json:
+diff --git a/src/customer_search/service.py b/src/customer_search/service.py
+index 2646f67..b686f41 100644
+--- a/src/customer_search/service.py
++++ b/src/customer_search/service.py
+@@ -24,6 +24,7 @@ class CustomerSearchService:
+         query: str,
+         field: str = "all",
+         active_only: bool = False,
++        limit: int | None = None,
+     ) -> SearchResult:
+         """Search customers matching query on given field.
+ 
+@@ -31,15 +32,16 @@ class CustomerSearchService:
+             query: The search term.
+             field: One of 'all', 'name', 'email'. Defaults to 'all'.
+             active_only: If True, restricts matches to active customers.
++            limit: Optional maximum number of customer records to return.
+ 
+         Returns:
+             SearchResult containing matching customers and match metrics.
+ 
+         Raises:
+-            ValidationError: If query violates VR-01, VR-02, or VR-03.
++            ValidationError: If query violates VR-01, VR-02, VR-03, or if limit is invalid.
+         """
+-        # Validate and normalize query (VR-01, VR-02, VR-03)
+-        normalized_query = self._validator.validate(query, field=field)
++        # Validate and normalize query (VR-01, VR-02, VR-03) and optional limit
++        normalized_query = self._validator.validate(query, field=field, limit=limit)
+         field_target = field.lower().strip()
+         search_term_lower = normalized_query.lower()
+ 
+@@ -68,10 +70,14 @@ class CustomerSearchService:
+ 
+         # SR-05 Sort alphabetically by name ascending, then by id
+         matched.sort(key=lambda c: (c.name.lower(), c.id))
++        total_matches = len(matched)
++
++        if limit is not None:
++            matched = matched[:limit]
+ 
+         return SearchResult(
+             query=normalized_query,
+             field=field_target,
+-            total_matches=len(matched),
++            total_matches=total_matches,
+             customers=matched,
+         )
+diff --git a/src/customer_search/validator.py b/src/customer_search/validator.py
+index 7db531b..cc9edf1 100644
+--- a/src/customer_search/validator.py
++++ b/src/customer_search/validator.py
+@@ -11,18 +11,20 @@ class SearchQueryValidator:
+     """
+ 
+     @staticmethod
+-    def validate(query: str, field: str = "all") -> str:
+-        """Validate search query and field.
++    def validate(query: str, field: str = "all", limit: int | None = None) -> str:
++        """Validate search query, target field, and optional result limit.
+ 
+         Args:
+             query: The search term to validate.
+             field: Target field ('all', 'name', 'email').
++            limit: Optional maximum number of customer records to return (>= 1).
+ 
+         Returns:
+             The normalized search query (stripped of surrounding whitespace).
+ 
+         Raises:
+-            ValidationError: If query is empty, shorter than 2 chars, or field is invalid.
++            ValidationError: If query is empty, shorter than 2 chars, field is invalid,
++                or limit is not a positive integer >= 1.
+         """
+         if not isinstance(query, str):
+             raise ValidationError("Search query must contain at least 2 non-whitespace characters.")
+@@ -41,4 +43,10 @@ class SearchQueryValidator:
+                 f"Invalid search field '{field}'. Allowed fields are: all, name, email."
+             )
+ 
++        if limit is not None:
++            if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
++                raise ValidationError(
++                    "Result limit must be a positive integer greater than or equal to 1."
++                )
++
+         return normalized_query
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index fa174a5..80c8442 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -92,3 +92,56 @@ def test_cli_active_only_flag(capsys):
+     for cust in data["customers"]:
+         assert cust["is_active"] is True
+ 
++
++def test_cli_limit_flag(capsys):
++    # CR-02: --limit restricts the number of returned customers while keeping total_matches
++    ret = main(["garcia", "--limit", "2", "--json"])
++    assert ret == 0
++    captured = capsys.readouterr()
++    data = json.loads(captured.out)
++    assert data["total_matches"] == 3
++    assert len(data["customers"]) == 2
++    assert [c["name"] for c in data["customers"]] == [
++        "Ana Sofia Garcia",
++        "Beatriz Elena Mendez",
++    ]
++
++
++def test_cli_limit_text_output(capsys):
++    # CR-02 / RF-03: --limit in text output reports full total_matches and renders limited rows
++    ret = main(["garcia", "--limit", "1"])
++    assert ret == 0
++    captured = capsys.readouterr()
++    assert "Found 3 customer(s) matching 'garcia' [field: all]:" in captured.out
++    assert "Ana Sofia Garcia" in captured.out
++    assert "Beatriz Elena Mendez" not in captured.out
++    assert "Carlos Alberto Ramirez Garcia" not in captured.out
++
++
++def test_cli_invalid_limit_zero(capsys):
++    # CR-02 / AC-06: invalid limit 0 exits with code 1 and prints error to stderr
++    ret = main(["garcia", "--limit", "0"])
++    assert ret == 1
++    captured = capsys.readouterr()
++    assert "Error: Result limit must be a positive integer greater than or equal to 1." in captured.err
++    assert "Traceback" not in captured.err
++
++
++def test_cli_invalid_limit_negative(capsys):
++    # CR-02 / AC-06 / RF-03: negative limit exits with code 1 and prints error to stderr
++    ret = main(["garcia", "--limit", "-2"])
++    assert ret == 1
++    captured = capsys.readouterr()
++    assert "Error: Result limit must be a positive integer greater than or equal to 1." in captured.err
++    assert "Traceback" not in captured.err
++
++
++def test_cli_text_output_includes_phone(capsys):
++    # CR-02 / AC-05: CLI text output includes customer phone column
++    ret = main(["torres"])
++    assert ret == 0
++    captured = capsys.readouterr()
++    assert "PHONE" in captured.out
++    assert "+52-999-567-8901" in captured.out
++
++
+diff --git a/tests/test_service.py b/tests/test_service.py
+index 29e523b..d97e72c 100644
+--- a/tests/test_service.py
++++ b/tests/test_service.py
+@@ -106,3 +106,23 @@ def test_service_active_only_filter():
+     assert active_res.customers[0].id == "1"
+     assert active_res.customers[0].is_active is True
+ 
++
++def test_service_search_with_limit(search_service):
++    # CR-02: limit parameter restricts returned customers while preserving total_matches
++    res = search_service.search("garcia", field="all", limit=2)
++    assert res.total_matches == 3
++    assert len(res.customers) == 2
++    assert [c.name for c in res.customers] == ["Ana Garcia", "Beatriz Mendez"]
++
++
++@pytest.mark.parametrize("invalid_limit", [0, -1, True, False, "2"])
++def test_service_search_invalid_limit(search_service, invalid_limit):
++    # CR-02 / RF-02: service validates limit via SearchQueryValidator
++    with pytest.raises(
++        ValidationError,
++        match="Result limit must be a positive integer greater than or equal to 1.",
++    ):
++        search_service.search("garcia", field="all", limit=invalid_limit)  # type: ignore
++
++
++
+diff --git a/tests/test_validator.py b/tests/test_validator.py
+index ccbf850..8f521cb 100644
+--- a/tests/test_validator.py
++++ b/tests/test_validator.py
+@@ -24,3 +24,18 @@ def test_validator_invalid_query_length_or_empty(invalid_query):
+ def test_validator_invalid_field(invalid_field):
+     with pytest.raises(ValidationError, match="Invalid search field"):
+         SearchQueryValidator.validate("valid_query", field=invalid_field)
++
++
++@pytest.mark.parametrize("valid_limit", [None, 1, 5, 100])
++def test_validator_valid_limit(valid_limit):
++    assert SearchQueryValidator.validate("garcia", field="all", limit=valid_limit) == "garcia"
++
++
++@pytest.mark.parametrize("invalid_limit", [0, -1, -10, True, False, "2", 1.5])
++def test_validator_invalid_limit(invalid_limit):
++    with pytest.raises(
++        ValidationError,
++        match="Result limit must be a positive integer greater than or equal to 1.",
++    ):
++        SearchQueryValidator.validate("garcia", field="all", limit=invalid_limit)  # type: ignore
++
