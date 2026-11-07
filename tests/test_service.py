@@ -108,9 +108,21 @@ def test_service_active_only_filter():
 
 
 def test_service_search_with_limit(search_service):
-    # CR-02: limit parameter restricts returned customers
+    # CR-02: limit parameter restricts returned customers while preserving total_matches
     res = search_service.search("garcia", field="all", limit=2)
+    assert res.total_matches == 3
     assert len(res.customers) == 2
     assert [c.name for c in res.customers] == ["Ana Garcia", "Beatriz Mendez"]
+
+
+@pytest.mark.parametrize("invalid_limit", [0, -1, True, False, "2"])
+def test_service_search_invalid_limit(search_service, invalid_limit):
+    # CR-02 / RF-02: service validates limit via SearchQueryValidator
+    with pytest.raises(
+        ValidationError,
+        match="Result limit must be a positive integer greater than or equal to 1.",
+    ):
+        search_service.search("garcia", field="all", limit=invalid_limit)  # type: ignore
+
 
 

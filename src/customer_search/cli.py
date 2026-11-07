@@ -92,9 +92,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         return exc.code if isinstance(exc.code, int) else 2
 
     try:
-        if args.limit is not None and args.limit < 1:
-            raise ValidationError("Result limit must be a positive integer greater than or equal to 1.")
-
         data_path = Path(args.data_file)
         repository = InMemoryCustomerRepository.from_json_file(data_path)
         service = CustomerSearchService(repository=repository)

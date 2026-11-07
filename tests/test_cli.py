@@ -94,17 +94,42 @@ def test_cli_active_only_flag(capsys):
 
 
 def test_cli_limit_flag(capsys):
-    # CR-02: --limit restricts the number of returned customers
+    # CR-02: --limit restricts the number of returned customers while keeping total_matches
     ret = main(["garcia", "--limit", "2", "--json"])
     assert ret == 0
     captured = capsys.readouterr()
     data = json.loads(captured.out)
+    assert data["total_matches"] == 3
     assert len(data["customers"]) == 2
+    assert [c["name"] for c in data["customers"]] == [
+        "Ana Sofia Garcia",
+        "Beatriz Elena Mendez",
+    ]
+
+
+def test_cli_limit_text_output(capsys):
+    # CR-02 / RF-03: --limit in text output reports full total_matches and renders limited rows
+    ret = main(["garcia", "--limit", "1"])
+    assert ret == 0
+    captured = capsys.readouterr()
+    assert "Found 3 customer(s) matching 'garcia' [field: all]:" in captured.out
+    assert "Ana Sofia Garcia" in captured.out
+    assert "Beatriz Elena Mendez" not in captured.out
+    assert "Carlos Alberto Ramirez Garcia" not in captured.out
 
 
 def test_cli_invalid_limit_zero(capsys):
     # CR-02 / AC-06: invalid limit 0 exits with code 1 and prints error to stderr
     ret = main(["garcia", "--limit", "0"])
+    assert ret == 1
+    captured = capsys.readouterr()
+    assert "Error: Result limit must be a positive integer greater than or equal to 1." in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_cli_invalid_limit_negative(capsys):
+    # CR-02 / AC-06 / RF-03: negative limit exits with code 1 and prints error to stderr
+    ret = main(["garcia", "--limit", "-2"])
     assert ret == 1
     captured = capsys.readouterr()
     assert "Error: Result limit must be a positive integer greater than or equal to 1." in captured.err

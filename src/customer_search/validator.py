@@ -11,18 +11,20 @@ class SearchQueryValidator:
     """
 
     @staticmethod
-    def validate(query: str, field: str = "all") -> str:
-        """Validate search query and field.
+    def validate(query: str, field: str = "all", limit: int | None = None) -> str:
+        """Validate search query, target field, and optional result limit.
 
         Args:
             query: The search term to validate.
             field: Target field ('all', 'name', 'email').
+            limit: Optional maximum number of customer records to return (>= 1).
 
         Returns:
             The normalized search query (stripped of surrounding whitespace).
 
         Raises:
-            ValidationError: If query is empty, shorter than 2 chars, or field is invalid.
+            ValidationError: If query is empty, shorter than 2 chars, field is invalid,
+                or limit is not a positive integer >= 1.
         """
         if not isinstance(query, str):
             raise ValidationError("Search query must contain at least 2 non-whitespace characters.")
@@ -40,5 +42,11 @@ class SearchQueryValidator:
             raise ValidationError(
                 f"Invalid search field '{field}'. Allowed fields are: all, name, email."
             )
+
+        if limit is not None:
+            if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+                raise ValidationError(
+                    "Result limit must be a positive integer greater than or equal to 1."
+                )
 
         return normalized_query
