@@ -92,3 +92,31 @@ def test_cli_active_only_flag(capsys):
     for cust in data["customers"]:
         assert cust["is_active"] is True
 
+
+def test_cli_limit_flag(capsys):
+    # CR-02: --limit restricts the number of returned customers
+    ret = main(["garcia", "--limit", "2", "--json"])
+    assert ret == 0
+    captured = capsys.readouterr()
+    data = json.loads(captured.out)
+    assert len(data["customers"]) == 2
+
+
+def test_cli_invalid_limit_zero(capsys):
+    # CR-02 / AC-06: invalid limit 0 exits with code 1 and prints error to stderr
+    ret = main(["garcia", "--limit", "0"])
+    assert ret == 1
+    captured = capsys.readouterr()
+    assert "Error: Result limit must be a positive integer greater than or equal to 1." in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_cli_text_output_includes_phone(capsys):
+    # CR-02 / AC-05: CLI text output includes customer phone column
+    ret = main(["torres"])
+    assert ret == 0
+    captured = capsys.readouterr()
+    assert "PHONE" in captured.out
+    assert "+52-999-567-8901" in captured.out
+
+

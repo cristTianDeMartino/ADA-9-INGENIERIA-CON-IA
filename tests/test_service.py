@@ -106,3 +106,11 @@ def test_service_active_only_filter():
     assert active_res.customers[0].id == "1"
     assert active_res.customers[0].is_active is True
 
+
+def test_service_search_with_limit(search_service):
+    # CR-02: limit parameter restricts returned customers
+    res = search_service.search("garcia", field="all", limit=2)
+    assert len(res.customers) == 2
+    assert [c.name for c in res.customers] == ["Ana Garcia", "Beatriz Mendez"]
+
+

@@ -24,6 +24,7 @@ class CustomerSearchService:
         query: str,
         field: str = "all",
         active_only: bool = False,
+        limit: int | None = None,
     ) -> SearchResult:
         """Search customers matching query on given field.
 
@@ -31,6 +32,7 @@ class CustomerSearchService:
             query: The search term.
             field: One of 'all', 'name', 'email'. Defaults to 'all'.
             active_only: If True, restricts matches to active customers.
+            limit: Optional maximum number of customer records to return.
 
         Returns:
             SearchResult containing matching customers and match metrics.
@@ -68,6 +70,9 @@ class CustomerSearchService:
 
         # SR-05 Sort alphabetically by name ascending, then by id
         matched.sort(key=lambda c: (c.name.lower(), c.id))
+
+        if limit is not None:
+            matched = matched[:limit]
 
         return SearchResult(
             query=normalized_query,
