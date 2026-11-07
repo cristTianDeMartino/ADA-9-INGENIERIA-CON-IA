@@ -24,3 +24,18 @@ def test_validator_invalid_query_length_or_empty(invalid_query):
 def test_validator_invalid_field(invalid_field):
     with pytest.raises(ValidationError, match="Invalid search field"):
         SearchQueryValidator.validate("valid_query", field=invalid_field)
+
+
+@pytest.mark.parametrize("valid_limit", [None, 1, 5, 100])
+def test_validator_valid_limit(valid_limit):
+    assert SearchQueryValidator.validate("garcia", field="all", limit=valid_limit) == "garcia"
+
+
+@pytest.mark.parametrize("invalid_limit", [0, -1, -10, True, False, "2", 1.5])
+def test_validator_invalid_limit(invalid_limit):
+    with pytest.raises(
+        ValidationError,
+        match="Result limit must be a positive integer greater than or equal to 1.",
+    ):
+        SearchQueryValidator.validate("garcia", field="all", limit=invalid_limit)  # type: ignore
+

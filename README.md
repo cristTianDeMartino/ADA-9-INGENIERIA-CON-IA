@@ -1,121 +1,137 @@
-# ADA-08: Agent-Ready Repository
+# ADA-09: Agentic Code Review
 
-Auditoría de preparación para agentes, mejoras operativas y evaluación comparativa BEFORE / AFTER sobre el sistema Customer Search.
+Ejecución completa del ciclo de desarrollo, verificación determinista, revisión de código agéntica independiente, toma de decisiones humanas, corrección acotada, re-review y consolidación de evidencia de Pull Request (`Coder Agent -> Verification Gate -> Reviewer Agent -> Human Review -> Fix -> Re-review -> PR Evidence`) sobre el sistema **Customer Search**.
 
-## Resumen de resultados
+## Resumen del ciclo ejecutado (`CR-02`)
 
-- Baseline (BEFORE): 47 / 100 puntos.
-- Repositorio optimizado (AFTER): 96 / 100 puntos.
-- Delta total: +49 puntos.
-- Suite de pruebas: 44 pruebas unitarias e integración en 0.04s.
-- Verificación automatizada: script unificado `./scripts/verify_repo.sh` compartido entre humanos, agentes y CI.
+- **Change Request (`CHANGE_REQUEST.md`)**: `CR-02` — Adición del filtro de límite de resultados (`limit: int | None = None` en `CustomerSearchService.search` y `--limit` en CLI) preservando `total_matches` previo al recorte, validación estricta de `limit >= 1` en `SearchQueryValidator`, e inclusión de la columna `PHONE` en la salida tabular del CLI (`FR-05` / `AC-05`).
+- **Rama y Commits**:
+  - Rama base: `main` (`24374dc`)
+  - Rama de trabajo: `ada09/cr-02`
+  - Commit candidato (Fase 1): `e2f8999` (`feat: implement CR-02`)
+  - Commit de corrección (Fase 6): `5722e2a` (`fix: address ADA-09 review findings`)
+- **Separación de roles e independencia de sesiones**:
+  - **Coder Agent**: Sesión independiente (`02e1e837-b5f5-4752-b9d5-73aaa0622837`, permisos de escritura).
+  - **Reviewer Agent**: Sesión independiente (`87d3351d-0769-4ec1-8378-9a83215d2f97`, permisos estrictamente `read-only` con `EnableWriteTools: false`).
+- **Resultados de Revisión y Verificación**:
+  - Revisión inicial (`results/review-report.md`): Detectó **2 `MUST FIX`** (`RF-01`, `RF-02`), **2 `SHOULD FIX`** (`RF-03`, `RF-04`) y **2 `OPTIONAL`** (`RF-05`, `RF-06`) que habían pasado desapercibidos pese a tener 48 tests en verde.
+  - Decisiones humanas (`results/human-review-decisions.md`): `3 ACCEPTED` (`RF-01`, `RF-02`, `RF-04`), `1 MODIFIED` (`RF-03` elevado de `SHOULD FIX` a `MUST FIX`), `1 DEFERRED` (`RF-05`) y `1 REJECTED` (`RF-06`).
+  - Re-review (`results/re-review-report.md`): `4 RESOLVED`, `0` regresiones nuevas y suite ampliada a **66 pruebas pasando en 0.12s** (`VERIFY_REPO: PASS`).
+  - Estado final (`results/PR_EVIDENCE.md`): **`READY FOR HUMAN MERGE`**.
 
-## Estructura del repositorio
+## Estructura de entrega (Sección 25)
 
 ```
-ada-08-agentreadyrepo/
-├── AGENTS.md                          # Contrato operativo y fuentes de verdad
-├── README.md                          # Documentación del proyecto y reflexiones
-├── REQUIREMENTS.md                    # Especificación de requisitos funcionales y no funcionales
+ada-09-agentic-code-review/
+├── AGENTS.md                          # Contrato operativo, separación de roles y reglas de review
+├── REQUIREMENTS.md                    # Requisitos funcionales y no funcionales (fuente de verdad)
 ├── SPEC.md                            # Especificación técnica y criterios de aceptación
-├── ARCHITECTURE.md                    # Diseño arquitectónico y capas
-├── TASKS.md                           # Desglose de tareas del sistema
-├── TASK_UNDER_TEST.md                 # Tarea controlada de prueba (CR-01: active_only)
-├── GEMINI.md                          # Adaptador para el agente sin duplicar requisitos
-├── requirements.txt                   # Dependencias mínimas versionadas
-├── REPOSITORY_READINESS_AUDIT.md      # Auditoría detallada BEFORE / AFTER y registro de mejoras
-├── AI_USAGE_LOG.md                    # Bitácora de decisiones y supervisión de IA
-├── .github/
-│   └── workflows/
-│       └── verify.yml                 # Pipeline de CI que invoca verify_repo.sh
+├── ARCHITECTURE.md                    # Diseño arquitectónico en capas y flujo de dependencias
+├── TASKS.md                           # Desglose de tareas base
+├── CHANGE_REQUEST.md                  # Solicitud de cambio acotada y aprobada (CR-02)
+├── README.md                          # Documentación, comandos y Reflexión Individual (Sección 29)
+├── AI_USAGE_LOG.md                    # Bitácora detallada de decisiones y supervisión de IA (Sección 28)
+├── GEMINI.md                          # Adaptador de contexto que delega en AGENTS.md
+├── requirements.txt                   # Dependencias de desarrollo/pruebas
 ├── docs/
-│   ├── REPO_MAP.md                    # Mapa de navegación, puntos de entrada y rutas protegidas
-│   └── traceability.md                # Matriz de trazabilidad
-├── scripts/
-│   ├── verify_repo.sh                 # Contrato ejecutable único (tests, sintaxis, contrato)
-│   └── check_repo_contract.py         # Guardrail determinista de integridad del repo
+│   ├── REPO_MAP.md                    # Mapa del repositorio y rutas protegidas
+│   └── traceability.md                # Matriz de trazabilidad actualizada con CR-02 y findings
 ├── src/
 │   └── customer_search/
 │       ├── __init__.py
-│       ├── cli.py                     # Interfaz CLI con soporte para --active-only
-│       ├── exceptions.py              # Excepciones de dominio y validación
-│       ├── models.py                  # Entidades Customer y SearchResult
+│       ├── cli.py                     # CLI con soporte para --limit y columna PHONE
+│       ├── exceptions.py              # Excepciones de dominio (ValidationError, DataLoadError)
+│       ├── models.py                  # Entidades inmutables Customer y SearchResult
 │       ├── repository.py              # Repositorio en memoria y carga JSON
-│       ├── service.py                 # Servicio de búsqueda con parámetro active_only
-│       └── validator.py               # Validador de consultas
-├── tests/                             # Suite automatizada (44 pruebas)
+│       ├── service.py                 # Servicio de búsqueda con limit y preservación de total_matches
+│       └── validator.py               # Validador de consultas y parámetro limit >= 1
+├── tests/
+│   ├── conftest.py
+│   ├── test_cli.py                    # Pruebas de integración CLI (--limit, PHONE, errores)
+│   ├── test_models.py                 # Pruebas de modelos de dominio
+│   ├── test_performance.py            # Benchmark < 100 ms para 1,000 registros
+│   ├── test_repository.py             # Pruebas de persistencia JSON y en memoria
+│   ├── test_service.py                # Pruebas de servicio (limit, total_matches, validación)
+│   └── test_validator.py              # Pruebas unitarias de validación (incluyendo limit y booleanos)
+├── scripts/
+│   ├── verify_repo.sh                 # Verification Gate determinista (Tests, Lint, Contract, Security)
+│   └── check_repo_contract.py         # Verificador de contrato del repositorio y seguridad
 └── results/
-    ├── before-agent-run.md            # Registro de ejecución BEFORE
-    ├── implicit-knowledge.md          # Registro de conocimiento tribal detectado
-    ├── after-agent-run.md             # Registro de ejecución AFTER
-    └── readiness-improvement-report.md# Comparativa técnica BEFORE vs AFTER
+    ├── run-context.md                 # Registro de rama, commit base y sesiones de agentes
+    ├── coder-report.md                # Reporte del Coder Agent (Fase 1 + Fase 6 Fix Cycle)
+    ├── verification-report.md         # Reporte del Verification Gate determinista
+    ├── pr.diff                        # Diff completo de la rama frente a main
+    ├── commits.txt                    # Historial de commits de la rama ada09/cr-02
+    ├── review-contract.md             # Contrato de revisión (requisitos, arquitectura, severidades)
+    ├── review-report.md               # Reporte del Reviewer Agent independiente (Fase 4)
+    ├── human-review-decisions.md      # Decisiones del Human Reviewer (Fase 5)
+    ├── re-review-report.md            # Reporte de Re-review independiente (Fase 7)
+    └── PR_EVIDENCE.md                 # Evidencia consolidada auditable y Human Gate Final (Fase 8)
 ```
 
 ## Instrucciones de ejecución y verificación
 
-### 1. Instalación de dependencias
 ```bash
+# 1. Instalar dependencias
 pip install -r requirements.txt
-```
 
-### 2. Ejecución del sistema (CLI)
-```bash
-# Búsqueda unificada predeterminada
-python3 -m src.customer_search.cli "garcia"
+# 2. Ejecutar búsqueda desde CLI con columna PHONE y límite de resultados
+python3 -m src.customer_search.cli "garcia" --limit 2
 
-# Búsqueda filtrando únicamente clientes activos
-python3 -m src.customer_search.cli "garcia" --active-only
+# 3. Ejecutar salida en formato JSON verificando total_matches vs customers recortados
+python3 -m src.customer_search.cli "garcia" --limit 2 --json
 
-# Salida en formato JSON
-python3 -m src.customer_search.cli "garcia" --active-only --json
-```
-
-### 3. Ejecución del contrato de verificación
-```bash
+# 4. Ejecutar el Verification Gate completo
 ./scripts/verify_repo.sh
 ```
-El script valida en una sola llamada:
-1. Suite completa de pruebas con `pytest`.
-2. Compilación y sintaxis de Python con `compileall`.
-3. Integridad del contrato del repositorio, presencia de archivos requeridos y ausencia de secretos con `check_repo_contract.py`.
 
-## Reflexión individual (Sección 26)
+---
 
-### 1. ¿Cuál fue el principal obstáculo para el agente en la ejecución BEFORE?
-El obstáculo principal fue la falta de un mapa directo de navegación y de comandos estándar de verificación. El agente tuvo que inspeccionar manualmente múltiples archivos para ubicar los puntos de entrada del código y asumió incorrectamente que existía un fixture en pytest, lo que provocó una falla inicial en la prueba de integración.
+## Reflexión individual (Sección 29)
 
-### 2. ¿Qué información tuvo que inferir el agente que un desarrollador experimentado ya conocía?
-Tuvo que inferir que el entorno local contenía pytest preinstalado, que `data/customers.json` funcionaba como fixture de prueba intocable para las búsquedas predeterminadas del CLI, y que el comando de prueba no requería flags adicionales ni un linter previo.
+### 1. ¿Qué encontró el reviewer-agent que el coder-agent no detectó?
+El `reviewer-agent` independiente detectó dos defectos críticos (`MUST FIX`) que el `coder-agent` pasó por alto en su implementación inicial (`e2f8999`):
+1. **Corrupción del conteo total (`RF-01`)**: En `src/customer_search/service.py`, el `coder-agent` aplicó el recorte `matched = matched[:limit]` *antes* de construir `SearchResult(..., total_matches=len(matched))`, provocando que `total_matches` reportara la longitud truncada (`2`) en lugar del total real de coincidencias antes del límite (`3`), violando `FR-05`, `AC-05` y el objetivo 2 de `CHANGE_REQUEST.md`.
+2. **Violación de frontera arquitectónica y desacoplamiento (`RF-02`)**: El `coder-agent` colocó la validación `if args.limit is not None and args.limit < 1` únicamente dentro de `src/customer_search/cli.py`, omitiendo agregarla en `SearchQueryValidator.validate` (`validator.py`) e invocarla desde `CustomerSearchService.search` (`service.py`). Como consecuencia, cualquier llamada programática al servicio (`NFR-02` / `AC-08`) con `limit=0`, `limit=-1` o `limit=True` evitaba la validación y producía resultados silenciosamente erróneos (por ejemplo, `limit=-1` ejecutaba `matched[:-1]`, eliminando el último registro).
 
-### 3. ¿Qué mejora produjo el mayor impacto y por qué?
-El script unificado `./scripts/verify_repo.sh`. Al empaquetar la ejecución de pruebas, la compilación de sintaxis y la validación de contratos en una sola llamada con códigos de salida deterministas, eliminó la incertidumbre sobre cuándo un cambio cumple los criterios de aceptación.
+### 2. ¿Qué finding fue más difícil de clasificar y por qué?
+El finding **`RF-03`** (ausencia de pruebas unitarias para `limit` en `test_validator.py`, falta de pruebas de `limit` inválido en `test_service.py` y omisión de la aserción `total_matches == 3` en `test_service.py` y `test_cli.py`). Inicialmente, el `reviewer-agent` lo clasificó como `SHOULD FIX` bajo la categoría de cobertura de pruebas, dado que ya existían pruebas básicas para `--limit` y el código parecía cubierto. Sin embargo, al analizarlo como revisor humano, resultó evidente que esas pruebas incompletas eran precisamente las que habían enmascarado los dos defectos `MUST FIX` (`RF-01` y `RF-02`), además de incumplir explícitamente la sección `Verification` de `CHANGE_REQUEST.md`. Por ello fue necesario reclasificarlo a `MUST FIX` durante el Human Review.
 
-### 4. ¿Qué información pertenece en AGENTS.md y qué información NO debería vivir ahí?
-En `AGENTS.md` deben vivir el orden de lectura, las referencias a las fuentes de verdad, los comandos estándar reproducibles, las reglas de modificación, las condiciones de parada y la definición de terminado. No deben vivir en `AGENTS.md` las especificaciones funcionales completas, la lógica de negocio detallada ni duplicados de los requisitos de `REQUIREMENTS.md`, pues duplicar información genera desincronización cuando el software evoluciona.
+### 3. ¿Qué finding rechazaste o modificaste como humano y qué evidencia usaste?
+- **Finding modificado (`RF-03`)**: Modifiqué su severidad de `SHOULD FIX` a `MUST FIX` utilizando como evidencia los puntos 1, 2 y 3 de la sección `Verification` en `CHANGE_REQUEST.md` y el requisito `NFR-03` (`AC-09`) de `SPEC.md`, exigiendo pruebas explícitas para `total_matches == 3` con `limit=2` y para valores inválidos de `limit` (`0`, `-1`, `True`, `False`, `"2"`) en `test_validator.py` y `test_service.py`.
+- **Finding rechazado (`RF-06`)**: Rechacé (`REJECTED`) la sugerencia del reviewer de agregar el atributo `"limit"` al modelo `SearchResult` y al diccionario retornado por `SearchResult.to_dict()`. Utilicé como evidencia concreta el contrato del **Domain Model** en `SPEC.md` (líneas 39–44), que define estrictamente cuatro campos (`query`, `field`, `total_matches`, `customers`), junto con la prueba `test_search_result_serialization` en `tests/test_models.py` y la restricción de compatibilidad hacia atrás en `CHANGE_REQUEST.md`.
 
-### 5. ¿Qué regla convertiste en software/hook/script en lugar de dejarla como instrucción?
-La verificación de integridad de archivos y rutas protegidas se convirtió en `scripts/check_repo_contract.py`. En lugar de pedirle al modelo por texto que no agregue secretos o que mantenga intacto `data/customers.json`, el script inspecciona el árbol de archivos en busca de patrones sensibles, comprueba que el dataset conserve formato JSON válido y valida que `SPEC.md` incluya los identificadores de requisitos.
+### 4. ¿Hubo algún test verde que produjera falsa confianza? Explica.
+Sí. En el commit candidato `e2f8999`, la suite completa pasó con **48 pruebas en verde** (`48 passed in 0.09s`), incluyendo las nuevas pruebas `test_service_search_with_limit` y `test_cli_limit_flag`. Esas dos pruebas produjeron **falsa confianza** por dos razones:
+1. Solo verificaban `assert len(res.customers) == 2` al buscar `"garcia"` con `limit=2`, omitiendo verificar `assert res.total_matches == 3`. Al validar únicamente el efecto secundario del recorte y no el invariante de negocio completo (`FR-05`), el test dio por bueno un resultado donde `total_matches` había sido sobrescrito erróneamente a `2`.
+2. La validación de `limit=0` solo se probó a través del CLI (`test_cli_invalid_limit_zero`), lo que ocultó por completo que `CustomerSearchService.search` y `SearchQueryValidator.validate` carecían de validación cuando se invocaban directamente desde Python.
 
-### 6. ¿Qué diferencia observaste entre 'más contexto' y 'mejor contexto'?
-Más contexto satura la ventana de atención con explicaciones históricas o asignaciones pedagógicas que no orientan la acción. Mejor contexto estructura la información mínima necesaria en el punto donde se requiere, mediante un mapa de repositorio directo (`docs/REPO_MAP.md`), comandos oficiales verificables y límites de modificación claros.
+### 5. ¿Verificaste alguna API o dependencia que parecía plausible? ¿Qué encontraste?
+Sí. Durante la construcción del `review-contract.md` y la revisión independiente se verificaron todas las llamadas entre módulos internos (`SearchQueryValidator.validate`, `InMemoryCustomerRepository.from_json_file`, `InMemoryCustomerRepository.get_all`, `Customer.to_dict`, `SearchResult.to_dict`) y librerías estándar (`argparse`, `json`, `dataclasses`, `pathlib`). Aunque el `coder-agent` no inventó librerías externas ni métodos inexistentes, sí se encontró una **discrepancia de firma de API interna**: `CHANGE_REQUEST.md` especificaba que `SearchQueryValidator.validate` debía validar el parámetro `limit`, pero en `src/customer_search/validator.py:14` la firma seguía siendo `validate(query: str, field: str = "all") -> str` sin el parámetro `limit: int | None = None`, mientras que `cli.py` simulaba esa validación por su cuenta.
 
-### 7. ¿Qué riesgo aparece cuando CLAUDE.md/GEMINI.md/copilot instructions duplican información del proyecto?
-Aparece el riesgo de desincronización y contradicción entre fuentes. Si los requisitos se editan en el archivo principal pero se omiten en el archivo específico del asistente, los agentes ejecutan supuestos obsoletos. Por eso estos archivos deben funcionar como adaptadores que delegan en `AGENTS.md`.
+### 6. ¿Qué arquitectura o regla del repositorio fue más útil para la revisión?
+La tabla de responsabilidades y el diagrama de secuencia en **`ARCHITECTURE.md`** (`CLI -> CustomerSearchService -> SearchQueryValidator` y `CustomerRepository`), combinados con el requisito **`NFR-02` (`AC-08`)** en `REQUIREMENTS.md` y `SPEC.md`. Esa regla arquitectónica establece sin ambigüedad que toda validación de negocio debe vivir en `validator.py` y ser coordinada por `service.py` de forma desacoplada del CLI. Gracias a ese límite explícito, ubicar la validación de `args.limit < 1` en `cli.py` no fue una discusión subjetiva de estilo, sino una violación verificable de arquitectura (`RF-02` y `RF-04`).
 
-### 8. ¿Qué checks comparten ahora el agente, el desarrollador humano y CI?
-Comparten exactamente el mismo contrato ejecutable: `./scripts/verify_repo.sh`. Los tres ejecutan la suite de pytest, la comprobación de sintaxis con `python3 -m compileall` y la validación determinista del contrato del repositorio con `scripts/check_repo_contract.py`.
+### 7. ¿Qué problema pudo detectar un check determinista antes que el reviewer-agent?
+El script determinista `./scripts/verify_repo.sh` (que ejecuta `pytest -q`, `python3 -m compileall -q src tests` y `python3 scripts/check_repo_contract.py`) verifica de forma instantánea y automática:
+- Errores de sintaxis o compilación de bytecode en `src/` y `tests/`.
+- Regresiones en las 44 pruebas existentes del sistema.
+- Presencia obligatoria de los archivos contractuales (`AGENTS.md`, `REQUIREMENTS.md`, `SPEC.md`, `ARCHITECTURE.md`, `TASKS.md`, `CHANGE_REQUEST.md`) y sus secciones clave.
+- Integridad del dataset protegido `data/customers.json` y ausencia de archivos sensibles o secretos (`.env`, `.pem`, `.key`, `id_rsa`, `credentials.json`).
 
-### 9. ¿Qué parte del proceso sigue requiriendo decisión humana?
-La aprobación de cambios arquitectónicos, la adición de nuevas dependencias externas, la redefinición de contratos en `REQUIREMENTS.md` y la autorización para modificar archivos sensibles o rutas protegidas.
+### 8. ¿Qué parte del review sigue requiriendo criterio humano?
+El criterio humano sigue siendo indispensable en tres decisiones que no pueden delegarse ni a checks deterministas ni al `reviewer-agent`:
+1. **Arbitraje entre sugerencias del reviewer y contratos existentes**: Decidir rechazar `RF-06` porque agregar un campo `"limit"` a `SearchResult.to_dict()`, aunque suena útil en abstracto, rompe la compatibilidad hacia atrás definida en `SPEC.md`.
+2. **Calibración de severidad según el riesgo real de negocio**: Elevar `RF-03` de `SHOULD FIX` a `MUST FIX` al reconocer que tests incompletos generan falsa confianza sobre invariantes críticos.
+3. **Control de alcance y gestión de deuda técnica**: Decidir diferir `RF-05` para mantener el Pull Request acotado y autorizar formalmente cuándo la evidencia es suficiente para declarar `READY FOR HUMAN MERGE`.
 
-### 10. ¿Qué evidencia demuestra que el AFTER es realmente mejor?
-La evidencia cuantitativa muestra que el puntaje de readiness subió de 47/100 a 96/100 (+49 puntos). La evidencia operativa muestra cero comandos fallidos en AFTER frente a una falla en BEFORE, cero suposiciones erróneas sobre fixtures y la verificación exitosa de 44 pruebas y contratos en una sola corrida de 0.04 segundos.
+### 9. ¿Qué technical debt aceptaste o diferiste y por qué?
+Diferí el finding **`RF-05`** (`DEFERRED`), relacionado con el ancho fijo de las columnas (`12`, `28`, `30`, `16`, `8`) y la línea separadora de 98 guiones en `format_text_output` (`src/customer_search/cli.py`). Lo diferí porque la salida actual incluye correctamente los cinco atributos requeridos por `FR-05` y `AC-05` (`id`, `name`, `email`, `phone`, `is_active`) y todas las pruebas de aceptación pasan; introducir un motor de cálculo dinámico de ancho de columnas en este PR habría expandido innecesariamente el alcance de `CR-02` con cambios cosméticos no solicitados.
 
-### 11. ¿Qué mejora realizada para el agente también beneficia a un desarrollador que entra por primera vez al proyecto?
-El mapa de repositorio (`docs/REPO_MAP.md`) y el script único de verificación (`./scripts/verify_repo.sh`). Un nuevo colaborador puede ubicar inmediatamente los puntos de entrada y ejecutar la validación completa del proyecto sin depender de explicaciones verbales ni adivinar dependencias.
-
-### 12. ¿Qué variable no controlada podría afectar tu comparación BEFORE/AFTER?
-La variabilidad estocástica en la generación del modelo de lenguaje y la presencia de dependencias preinstaladas en el entorno global del sistema operativo (como pytest en Homebrew), que permitieron la ejecución de pruebas en BEFORE a pesar de no existir un archivo de requerimientos versionado.
-
-### 13. ¿Qué elementos de este ADA conservarás como base para tu proyecto final?
-Conservaré la tríada operativa: un `AGENTS.md` conciso con fuentes de verdad y reglas de cambio, un `docs/REPO_MAP.md` con entry points y rutas protegidas, y un script ejecutable `./scripts/verify_repo.sh` integrado en CI para validar código, sintaxis y contratos en un solo paso.
+### 10. ¿Qué artefactos de este ADA reutilizarías en la Agentic Software Factory final?
+Reutilizaría cinco artefactos fundamentales como parte del pipeline estándar de la **Agentic Software Factory**:
+1. **`CHANGE_REQUEST.md` con Human Gate 0**: Para garantizar que ningún agente escriba código sin un alcance acotado, trazable a requisitos existentes y aprobado por un humano.
+2. **`./scripts/verify_repo.sh` y `results/verification-report.md`**: Como Verification Gate determinista obligatorio antes de invocar cualquier agente revisor.
+3. **`results/review-contract.md`**: Para obligar al `reviewer-agent` a reconstruir qué significa "correcto" (requisitos + límites arquitectónicos + matriz de severidad) antes de leer el diff.
+4. **`results/review-report.md` y `results/re-review-report.md` generados por un subagente `read-only` en sesión separada**: Para asegurar independencia real de contexto y hallazgos sustentados en archivo/línea.
+5. **`results/human-review-decisions.md` y `results/PR_EVIDENCE.md`**: Para mantener la trazabilidad auditable de extremo a extremo y preservar la responsabilidad final de merge en manos humanas.

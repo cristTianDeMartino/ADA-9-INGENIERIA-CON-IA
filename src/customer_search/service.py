@@ -24,6 +24,7 @@ class CustomerSearchService:
         query: str,
         field: str = "all",
         active_only: bool = False,
+        limit: int | None = None,
     ) -> SearchResult:
         """Search customers matching query on given field.
 
@@ -31,15 +32,16 @@ class CustomerSearchService:
             query: The search term.
             field: One of 'all', 'name', 'email'. Defaults to 'all'.
             active_only: If True, restricts matches to active customers.
+            limit: Optional maximum number of customer records to return.
 
         Returns:
             SearchResult containing matching customers and match metrics.
 
         Raises:
-            ValidationError: If query violates VR-01, VR-02, or VR-03.
+            ValidationError: If query violates VR-01, VR-02, VR-03, or if limit is invalid.
         """
-        # Validate and normalize query (VR-01, VR-02, VR-03)
-        normalized_query = self._validator.validate(query, field=field)
+        # Validate and normalize query (VR-01, VR-02, VR-03) and optional limit
+        normalized_query = self._validator.validate(query, field=field, limit=limit)
         field_target = field.lower().strip()
         search_term_lower = normalized_query.lower()
 
@@ -68,10 +70,14 @@ class CustomerSearchService:
 
         # SR-05 Sort alphabetically by name ascending, then by id
         matched.sort(key=lambda c: (c.name.lower(), c.id))
+        total_matches = len(matched)
+
+        if limit is not None:
+            matched = matched[:limit]
 
         return SearchResult(
             query=normalized_query,
             field=field_target,
-            total_matches=len(matched),
+            total_matches=total_matches,
             customers=matched,
         )

@@ -20,14 +20,14 @@ def format_text_output(result: SearchResult) -> str:
 
     lines = [
         f"Found {result.total_matches} customer(s) matching '{result.query}' [field: {result.field}]:",
-        "-" * 80,
-        f"{'ID':<12} | {'NAME':<28} | {'EMAIL':<30} | {'STATUS':<8}",
-        "-" * 80,
+        "-" * 98,
+        f"{'ID':<12} | {'NAME':<28} | {'EMAIL':<30} | {'PHONE':<16} | {'STATUS':<8}",
+        "-" * 98,
     ]
     for c in result.customers:
         status = "Active" if c.is_active else "Inactive"
-        lines.append(f"{c.id:<12} | {c.name:<28} | {c.email:<30} | {status:<8}")
-    lines.append("-" * 80)
+        lines.append(f"{c.id:<12} | {c.name:<28} | {c.email:<30} | {c.phone:<16} | {status:<8}")
+    lines.append("-" * 98)
     return "\n".join(lines)
 
 
@@ -63,6 +63,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Filter search results to active customers only.",
     )
     parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Maximum number of customer records to return.",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         dest="as_json",
@@ -93,6 +99,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             query=args.query,
             field=args.field,
             active_only=args.active_only,
+            limit=args.limit,
         )
 
         if args.as_json:
